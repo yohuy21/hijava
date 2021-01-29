@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC 
+				"-//mybatis.org//DTD Mapper 3.0//EN" 
+				"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 이 memberSQL.xml문서는
+		 db의 member테이블관련 쿼리문 작성 및 실행과 관련된 코드를 포함 -->
+<mapper namespace="member">
+	<!-- xml주석문 -->
+	<!--  쿼리문에는 ;포함하면x  -->
+	
+	<!-- 로그인처리  -->
+	<!-- 리턴받는 컬럼의 수가 2개 이상이면	DTO(VO), Map으로 작성한다   
+			여기에서는 Map으로 처리  resultMap="java.util.HashMap"
+			Map은 K는  컬럼명이  키값이 되고
+			     V는  컬럼값이 된다
+			이 때, 컬럼의 명은 항상 대문자.     
+			SELECT  
+						m_id		AS 	id,  맵.put("ID","hongid");
+						m_pw		AS	pw,  맵.put("PW","1234");
+		   
+			파라미터가 2개 이상이면      DTO(VO), Map으로 작성한다
+			여기에서는 Map으로 처리    parameterType="java.util.HashMap"
+			
+			파라미터는  #{}로 입력.  기존 jsp의 pstmt에서의 ?에 해당하는 부분
+			#{map의 키값}
+			
+			여기에서는 MemberDAO의 loginProc(HashMap map)으로 넘어왔다
+			//map.put("id", memberDto.getId()); //user가 입력id
+		  //map.put("pw", memberDto.getPw()); //user가 입력pw
+			
+	-->
+	<select id="loginProc" 
+					resultType="java.util.HashMap"
+					parameterType="java.util.HashMap">
+		SELECT  
+						m_id		AS 	id,
+						m_pw		AS	pw,	
+						m_name	AS	name,
+						m_nick	AS	nick
+		FROM   	MEMBER
+		WHERE	 	m_id=#{id}
+					 	AND
+					 	m_pw=#{pw}
+	</select>
+	
+	
+	<!-- select쿼리문의 경우에   
+				리턴받는 컬럼의 수가 1개이면
+				해당 값을 Object형태로 작성하면 된다
+				예) NUBER(DB)  -> java.lang.Integer
+				    실수NUBER(DB) -> java.lang.Double
+				   varchar2    => java.lang.String
+				   
+				자주 사용이 되는  클래스는  XML의 typeAliases로 등록하여
+				사용할 수 있다.
+				여기에서 우리는 myBatis-config.xml
+					<typeAlias type="java.lang.Integer" alias="int"/>
+				typeAlias에 대한 추가적인 내용은  	 
+				제공해드린  MyBatis-3-User-Guide_ko.pdf문서를 참고하세요      
+				
+				리턴받는 컬럼의 수가 2개 이상이면
+				DTO(VO), Map으로 작성한다
+	
+	<select id="memberCnt" resultType="java.lang.Integer">
+		SELECT 	COUNT(*) AS CNT
+		FROM 		MEMBER
+	</select>
+	 -->
+	 
+	<!-- 회원수 조회 -->	 
+  <select id="memberCnt" resultType="int">
+		SELECT 	COUNT(*) AS CNT
+		FROM 		MEMBER
+	</select>
+
+</mapper>				
+
+
+
+
+
+
+
+

@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!DOCTYPE mapper PUBLIC 
+				"-//mybatis.org//DTD Mapper 3.0//EN" 
+				"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!-- 이 boardSQL.xml문서는
+		 db의  파일게시판(board-게시판글 정보,첨부파일정보-fileInfo)관련 쿼리문 작성 및 실행과 관련된 코드를 포함 -->
+		 
+<mapper namespace="board">
+
+	<!-- 자주 사용한 쿼리문을 등록할 수 있다. 
+	     <sql id="id값">쿼리문</sql>	
+			필요할 때 참조해서 사용할 수 있다 
+			<include refid="참조하고자하는 id키값"/>
+			-->
+	<sql id="isShow">
+		b_show=1
+	</sql>		
+	
+	<sql id="fileInfo">
+					f_no				AS	no,
+					f_oriBNo		AS	oriBNo,
+					f_name			AS	name,		
+					f_saveName	AS	saveName,
+					f_path			AS	path,	
+					f_size			AS	fsize	
+	</sql>
+	
+	<!-- MyBatis의 if문을 활용한 동적SQL
+	     미리 제공해드렸던  MyBatis-3-User-Guide_ko.pdf의 동적SQL P42참고 -->
+	<sql id="SearchCondition">
+		<if test='target eq "writer"'>
+	  	b_writer   LIKE '%'||#{word}||'%'
+	  </if>
+	  
+	  <if test='target eq "title"'>
+	  	b_title	   LIKE '%'||#{word}||'%'
+	  </if>
+	
+		<if test='target eq "content"'>
+	  	b_title	   LIKE '%'||#{word}||'%'
+	  </if>
+	 
+	  <if test='target eq "both"'>
+	   (b_title     LIKE '%'||#{word}||'%'
+	    OR
+	    b_content   LIKE '%'||#{word}||'%')
+	  </if>
+  </sql>
+	
+	<!-- 글 삭제 -->
+	<update id="delBoard" parameterType="bDTO">
+		UPDATE BOARD
+		SET    b_show = 0
+		WHERE	 b_no = #{oriBNo}
+					 AND
+					 b_pw = #{pw}
+	</update>
+
+	<!-- 수정처리-기존의 첨부된 파일들을 db에서도 삭제 -->
+	<delete id="deleteFileInfo"
+	        parameterType="int">
+	  DELETE FROM  fileInfo
+	  WHERE        f_oriBNo=#{oriBNo}
+	</delete>
+
+
+	<!-- 수정처리 - 누가, 제목, 내용, 비번,.. -->
+	<update id="updateBoard"
+					parameterType="bDTO">
+		UPDATE board
+		SET		 b_title  = #{title},
+					 b_content= #{content},
+					 b_pw     = #{pw}
+		WHERE  b_No=#{oriBNo}
+	</update>
+
+
+	<!-- 상세조회- 게시판정보 조회 -->
+	<!-- 참고
+			Oracle에서 LOB이란 Large Object의 약자
+			대용량 데이터를 저장하고 관리하기 위해 오라클에서 제공하는 기본 데이터 타입.
+			오라클의 기본 데이터 형태는 문자, 숫자, 날짜 등 구조적인 데이터 타입인데 
+			시대가 변함에 따라 비 구조적인 데이터 타입인 
+			사진, 음악, 동영상 등의 처리도 필요하게 되어 생겨난 형태가 LOB.
+			LOB의 종류에는 내부 LOB 타입인 BLOB(Binary), CLOB(Character) 등이 있고 
+			외부 LOB타입인 BFILE 등이 있습니다.
+			LOB데이터는 사진, 음성 등 비 구조화된 파일을 저장하기 때문에 
+			일반적인 select로는 조회가 불가능합니다. 
+			따라서 데이터를 저장 또는 조회할 때 별도의 프로그래밍을 이용해야만 가능합니다.  -->
+			
+	<!-- myBatis에서 CLOB를 조회하기 위해서는
+			 먼저   CLOB를 String으로  처리하도록 선언한다
+			이 때 사용되는 태그가 resultMap.
+			resultMap에 대한 자세한 설명은  자료로 제공해드린
+			MyBatis-3-User-Guide_ko.pdf를 참고하세요 -->
+	<resultMap type="bDTO" id="clobContent">
+		<result  column="b_content" jdbcType="CLOB"
+		         javaType="string" 	property="content"/>
+	</resultMap>
+				
+	<select id="boardDetail" parameterType="int"
+	              					 resultMap="clobContent">
+	 SELECT  
+        b_content,	
+	 			b_No      	AS no,
+        b_writer   	AS id,
+        m_nick			AS nick,	
+        b_title    	AS title,	
+        b_wdate    	AS wdate,		
+        b_pw        AS pw,	
+        b_hit       AS hit
+	 FROM			
+	 			board, member
+	 WHERE    
+ 				b_No=#{oriNo}
+ 				AND
+ 				board.b_writer=member.m_id
+        AND
+       	<include refid="isShow"/>
+	</select>
+
+	
+	<!-- 다운로드 첨부파일정보 조회 -->
+	<select id="downLoadFile" parameterType="int" 
+					resultType="bDTO">
+		 SELECT
+						<include refid="fileInfo"/>
+		 FROM		fileInfo
+		 WHERE  f_no=#{fno}   
+	</select>
+
+	<!-- 첨부파일정보 조회 -->
+	<select id="boardFile" parameterType="int"
+	             					 resultType="bDTO">
+	 SELECT
+					<include refid="fileInfo"/>
+	 FROM		fileInfo
+	 WHERE  f_oriBNo=#{oriNo}            
+	</select>
+
+	<!-- 조회수증가 -->
+	<update id="hitUp" parameterType="int">
+		UPDATE board
+		SET    b_hit = b_hit+1
+		WHERE  b_No  = #{oriNo} 
+	</update>
+
+
+
+
+	<!-- 총 게시물수 조회 -->
+	<select id="totalCnt" resultType="int">
+		SELECT  count(*) AS cnt
+		FROM    board
+		WHERE   <include refid="isShow"/>
+	</select>
+
+
+  <!-- 검색후의 게시물 수 조회 -->
+  <select id="searchTotalCnt" parameterType="bDTO"  resultType="int">
+		SELECT  count(*) AS cnt
+		FROM    board
+		WHERE   b_show=1
+		        AND
+		       <include  refid="SearchCondition"/>
+	</select>
+
+
+	<!-- 검색에 따른 목록조회  -->
+	<select id="searchBoardList"  parameterType="bDTO" resultType="bDTO">
+ 	select * 
+	from (
+	    	SELECT
+			    row_number() over(order by b_no desc) AS rno,
+			    b_No			AS no,
+			    f_oriBno	AS oriBNo,
+					b_title   AS title,
+					b_writer  AS writer,
+					b_wdate   AS wdate,
+					b_hit 		AS hit,
+					NVL(f1.CNT, 0)   AS fcount,
+				  m_id  		AS id, 
+				  m_nick 		AS nick	    
+				FROM BOARD, 
+				     member,
+							(select f_oriBno, count(*) AS CNT 
+							 from fileinfo 
+							 group by f_oriBno) f1
+				WHERE 
+							<include refid="SearchCondition"/>
+							AND
+							<include refid="isShow"/>
+				      AND 
+				      board.b_no = f1.f_oriBNo(+)
+				      AND
+				      board.b_writer = member.m_id      
+			)
+		where rno BETWEEN #{start} AND #{end}	 	
+	</select>
+
+	<!-- 목록조회 -->
+	<select id="boardList" parameterType="bDTO" resultType="bDTO">
+	select * 
+	from (
+	    	SELECT
+			    row_number() over(order by b_no desc) AS rno,
+			    b_No			AS no,
+			    f_oriBno	AS oriBNo,
+					b_title   AS title,
+					b_writer  AS writer,
+					b_wdate   AS wdate,
+					b_hit 		AS hit,
+					NVL(f1.CNT, 0)   AS fcount,
+				  m_id  		AS id, 
+				  m_nick 		AS nick	    
+				FROM BOARD, 
+				     member,
+							(select f_oriBno, count(*) AS CNT 
+							 from fileinfo 
+							 group by f_oriBno) f1
+				WHERE <include refid="isShow"/>
+				      AND 
+				      board.b_no = f1.f_oriBNo(+)
+				      AND
+				      board.b_writer = member.m_id
+				      
+			)
+	where rno BETWEEN #{start} AND #{end}	
+	</select>
+	
+	
+	
+
+	<!-- 게시판글입력 -->
+	<!-- selectKey에 대한 자세한 내용은 제공해드린 MyBatis-3-User-Guide_ko.pdf문서의
+				23page를 참고하세요
+				
+	     여기에서는 insert를 실행하기 전에(order="BEFORE") 
+	     selectKey에 해당하는 부분을 먼저 실행하여
+	     parameterType에서 지정한 property속성에 실행결과를  setting한다-->
+	<insert id="insBoard" parameterType="bDTO">
+		<selectKey keyProperty="no" resultType="int" order="BEFORE">
+			SELECT nvl(max(b_no),0)+1
+			FROM   board
+		</selectKey>
+		INSERT   INTO   board   
+		VALUES(  #{no}, #{writer}, #{title}, #{content}, SYSDATE, #{pw}, 0, 1 )
+	</insert>
+	
+	<!-- 첨부파일정보 입력-->
+	<insert id="insFileInfo" parameterType="bDTO">
+		INSERT	INTO	fileInfo
+		VALUES( (select nvl(max(f_no),0)+1  from 	fileInfo ), 
+						#{oriBNo}, #{name}, #{saveName}, #{path}, #{fsize})
+	</insert>
+</mapper>		 
+
+
+
+
+
+
+
+
+
